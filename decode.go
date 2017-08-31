@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/nu7hatch/gouuid"
+	"fmt"
 )
 
 var typeSize = map[int8]int{
@@ -253,8 +254,9 @@ func readData(r *bufio.Reader, order binary.ByteOrder) (*K, error) {
 		var arr interface{}
 		if msgtype >= TypeBoolean && msgtype <= TypeTime {
 			bytedata := make([]byte, int(veclen)*typeSize[msgtype])
-			_, err = io.ReadFull(r, bytedata)
+			n, err := io.ReadFull(r, bytedata)
 			if err != nil {
+				fmt.Println("DEBUG::veclen", veclen, int(veclen)*typeSize[msgtype], n)
 				return nil, errors.New("Not enough data - " + err.Error())
 			}
 			head := (*reflect.SliceHeader)(unsafe.Pointer(&bytedata))
