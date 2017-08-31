@@ -72,7 +72,7 @@ func (c *KDBConn) Call(cmd string, args ...*K) (data *K, err error) {
 		return nil, errors.New("Closed connection")
 	}
 	var sending *K
-	var cmdK = &K{KC, NONE, cmd}
+	var cmdK = &K{TypeChar, NONE, cmd}
 	if len(args) == 0 {
 		sending = cmdK
 	} else {
@@ -86,13 +86,33 @@ func (c *KDBConn) Call(cmd string, args ...*K) (data *K, err error) {
 	return data, err
 }
 
+// Make synchronous call to kdb+ similar to h(func;arg1;arg2;...)
+func (c *KDBConn) CallN(cmd string, args ...*K) (data *K, i int, err error) {
+	if !c.ok() {
+		return nil, 0, errors.New("Closed connection")
+	}
+	var sending *K
+	var cmdK = &K{TypeChar, NONE, cmd}
+	if len(args) == 0 {
+		sending = cmdK
+	} else {
+		sending = &K{K0, NONE, append([]*K{cmdK}, args...)}
+	}
+	err = Encode(c.con, SYNC, sending)
+	if err != nil {
+		return nil, 0, err
+	}
+	data, n, err := Decode(c.rbuf)
+	return data, n, err
+}
+
 // Make asynchronous call to kdb+
 func (c *KDBConn) AsyncCall(cmd string, args ...*K) (err error) {
 	if !c.ok() {
 		return errors.New("Closed connection")
 	}
 	var sending *K
-	var cmdK = &K{KC, NONE, cmd}
+	var cmdK = &K{TypeChar, NONE, cmd}
 	if len(args) == 0 {
 		sending = cmdK
 	} else {
@@ -163,7 +183,7 @@ func DialTLS(host string, port int, auth string, cfg *tls.Config) (*KDBConn, err
 
 // Connect to port using unix domain sockets. host parameter is ignored.
 func DialUnix(host string, port int, auth string) (*KDBConn, error) {
-	c, err := net.Dial("unix", "/tmp/kx."+fmt.Sprint(port))
+	c, err := net.Dial("unix", host+":"+fmt.Sprint(port))
 	if err != nil {
 		return nil, err
 	}

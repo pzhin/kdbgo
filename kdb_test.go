@@ -4,89 +4,86 @@ import (
 	"fmt"
 	//"reflect"
 	"crypto/tls"
-	//"io"
-	"bytes"
-	"log"
+
 	"os"
-	"strconv"
-	//"io/ioutil"
-	"os/exec"
+
 	"testing"
 	"time"
 )
 
-var testHost = "localhost"
+var testHost = "0.0.0.0"
 var testPort = 0
 
 func TestMain(m *testing.M) {
-	fmt.Println("Starting q process on random port")
-
-	_, err := exec.LookPath("q")
-	if err != nil {
-		log.Fatal("installing q is in your future")
-	}
-
-	cmd := exec.Command("q", "-p", "0W", "-q")
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		log.Fatal("Failed to connect stdin", err)
-	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal("Failed to connect stdout", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal("Failed to connect stderr", err)
-	}
-
-	err = cmd.Start()
-	if err != nil {
-		log.Fatal("Failed to start q", err)
-	}
-
-	buf := make([]byte, 64 * 1024)
-	stdout.Read(buf)
-
-	stdin.Write([]byte(".z.pi:.z.pg:.z.ps:{value 0N!x};system\"p\"\n"))
-
-	buf = make([]byte, 16)
-	n, _ := stdout.Read(buf)
-	testPort, err = strconv.Atoi(string(buf[:bytes.IndexByte(buf, 'i')]))
-	if err != nil {
-		fmt.Println("Failed to setup listening port", string(buf[:n]), err)
-		cmd.Process.Kill()
-		os.Exit(1)
-	}
-	fmt.Println("Listening port is ", testPort)
-	go func() {
-		for {
-			buf := make([]byte, 256)
-			_, err := stderr.Read(buf)
-			//fmt.Println("Q stderr output:", string(buf[:n]))
-			if err != nil {
-				fmt.Println("Q stderr error:", err)
-				return
-			}
-		}
-	}()
-	go func() {
-		for {
-			buf := make([]byte, 256)
-			_, err := stdout.Read(buf)
-			if err != nil {
-				fmt.Println("Q stdout error:", err)
-				return
-			}
-		}
-	}()
+	//fmt.Println("Starting q process on random port")
+	//
+	//_, err := exec.LookPath("q")
+	//if err != nil {
+	//	log.Fatal("installing q is in your future")
+	//}
+	//
+	//cmd := exec.Command("q", "-p", "0W", "-q")
+	//
+	//stdin, err := cmd.StdinPipe()
+	//if err != nil {
+	//	log.Fatal("Failed to connect stdin", err)
+	//}
+	//
+	//stdout, err := cmd.StdoutPipe()
+	//if err != nil {
+	//	log.Fatal("Failed to connect stdout", err)
+	//}
+	//
+	////stderr, err := cmd.StderrPipe()
+	////if err != nil {
+	////	log.Fatal("Failed to connect stderr", err)
+	////}
+	//
+	//
+	//err = cmd.Start()
+	//if err != nil {
+	//	log.Fatal("Failed to start q", err)
+	//}
+	//
+	//buf := make([]byte, 64 * 1024)
+	//stdout.Read(buf)
+	//
+	//stdin.Write([]byte(".z.pi:.z.pg:.z.ps:{value 0N!x};system\"p\"\n"))
+	//
+	//buf = make([]byte, 16)
+	//n, _ := stdout.Read(buf)
+	//testPort, err = strconv.Atoi(string(buf[:bytes.IndexByte(buf, 'i')]))
+	//if err != nil {
+	//	fmt.Println("Failed to setup listening port", string(buf[:n]), err)
+	//	cmd.Process.Kill()
+	//	os.Exit(1)
+	//}
+	//fmt.Println("Listening port is ", testPort)
+	//go func() {
+	//	for {
+	//		buf := make([]byte, 256)
+	//		_, err := stderr.Read(buf)
+	//		//fmt.Println("Q stderr output:", string(buf[:n]))
+	//		if err != nil {
+	//			fmt.Println("Q stderr error:", err)
+	//			return
+	//		}
+	//	}
+	//}()
+	//go func() {
+	//	for {
+	//		buf := make([]byte, 256)
+	//		_, err := stdout.Read(buf)
+	//		if err != nil {
+	//			fmt.Println("Q stdout error:", err)
+	//			return
+	//		}
+	//	}
+	//}()
 	//stdin.Close()
 	res := m.Run()
-	stdin.Write([]byte("show `exiting_process;\nexit 0\n"))
-	cmd.Wait()
+	//stdin.Write([]byte("show `exiting_process;\nexit 0\n"))
+	//cmd.Wait()
 
 	os.Exit(res)
 }
@@ -159,7 +156,7 @@ func TestSyncCallCompress(t *testing.T) {
 		vec[i] = int64(i)
 	}
 	fmt.Println("Testing sync function call with large data compression")
-	res, _ := con.Call("sum", &K{KJ, NONE, vec})
+	res, _ := con.Call("sum", &K{TypeInt64, NONE, vec})
 	fmt.Println("Result:", res, err)
 	if res != nil && res.Data.(int64) != 499999500000 {
 		t.Error("Unexpected result:", res, 499999500000)
@@ -235,7 +232,7 @@ func TestResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to test instance: %s", err)
 	}
-	err = con.Response(&K{KC, NONE, "show `response;1 2 3"})
+	err = con.Response(&K{TypeChar, NONE, "show `response;1 2 3"})
 	if err != nil {
 		t.Error("Sending response failed", err)
 	}
@@ -252,5 +249,25 @@ func BenchmarkTradeRead(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = con.Call("10#testdata")
 		//fmt.Println("Result:", reflect.TypeOf(res), err)
+	}
+}
+
+func BenchmarkTradeRead1(b *testing.B) {
+	con, err := DialUnix(testHost, 1234, "")
+	if err != nil {
+		b.Fatalf("Failed to connect to test instance: %s", err)
+	}
+	//con.Call("testdata:([]time:10?.z.p;sym:10?`8;price:100+10?1f;size:10?10)")
+	//fmt.Println("KDB connection", con, err)
+	b.ResetTimer()
+	//b.RunParallel(func(pb *testing.PB) {
+	//	for pb.Next(){
+	//		_, n, _ := con.CallN("10#testdata")
+	//		b.SetBytes(int64(n))
+	//	}
+	//})
+	for i := 0; i < b.N; i++ {
+		_, n, _ := con.CallN("10#testdata")
+		b.SetBytes(int64(n))
 	}
 }

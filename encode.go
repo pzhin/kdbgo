@@ -22,20 +22,20 @@ func writeData(dbuf io.Writer, order binary.ByteOrder, data *K) (err error) {
 				return err
 			}
 		}
-	case -KS:
+	case -TypeString:
 		tosend := data.Data.(string)
 
 		binary.Write(dbuf, order, int8(data.Type))
 		binary.Write(dbuf, order, []byte(tosend))
 		binary.Write(dbuf, order, byte(0))
-	case KC:
+	case TypeChar:
 		tosend := data.Data.(string)
 
 		binary.Write(dbuf, order, int8(data.Type))
 		binary.Write(dbuf, order, NONE) // attributes
 		binary.Write(dbuf, order, int32(len(tosend)))
 		binary.Write(dbuf, order, []byte(tosend))
-	case KS:
+	case TypeString:
 		tosend := data.Data.([]string)
 		binary.Write(dbuf, order, int8(data.Type))
 		binary.Write(dbuf, order, NONE) // attributes
@@ -44,7 +44,7 @@ func writeData(dbuf io.Writer, order binary.ByteOrder, data *K) (err error) {
 			binary.Write(dbuf, order, []byte(tosend[i]))
 			binary.Write(dbuf, order, byte(0))
 		}
-	case -KB:
+	case -TypeBoolean:
 		tosend := data.Data.(bool)
 		binary.Write(dbuf, order, int8(data.Type))
 		var val byte
@@ -54,10 +54,10 @@ func writeData(dbuf io.Writer, order binary.ByteOrder, data *K) (err error) {
 			val = 0x00
 		}
 		binary.Write(dbuf, order, val)
-	case -KI, -KJ, -KE, -KF:
+	case -TypeInt32, -TypeInt64, -TypeFloat32, -TypeFloat64:
 		binary.Write(dbuf, order, int8(data.Type))
 		binary.Write(dbuf, order, data.Data)
-	case KG, KI, KJ, KE, KF, KZ, KT, KD, KV, KU, KM, KP, KN:
+	case TypeByte, TypeInt32, TypeInt64, TypeFloat32, TypeFloat64, KZ, TypeTime, TypeDay, TimeSecond, TypeMinute, TypeMonth, TypeTimestamp, TypeTimespan:
 		binary.Write(dbuf, order, int8(data.Type))
 		binary.Write(dbuf, order, NONE) // attributes
 		binary.Write(dbuf, order, int32(reflect.ValueOf(data.Data).Len()))
@@ -77,7 +77,7 @@ func writeData(dbuf io.Writer, order binary.ByteOrder, data *K) (err error) {
 		tosend := data.Data.(Table)
 		binary.Write(dbuf, order, XT)
 		binary.Write(dbuf, order, NONE) // attributes
-		err = writeData(dbuf, order, &K{XD, NONE, Dict{&K{KS, NONE, tosend.Columns}, &K{K0, NONE, tosend.Data}}})
+		err = writeData(dbuf, order, &K{XD, NONE, Dict{&K{TypeString, NONE, tosend.Columns}, &K{K0, NONE, tosend.Data}}})
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func writeData(dbuf io.Writer, order binary.ByteOrder, data *K) (err error) {
 		binary.Write(dbuf, order, int8(data.Type))
 		binary.Write(dbuf, order, []byte(tosend.Namespace))
 		binary.Write(dbuf, order, byte(0))
-		err = writeData(dbuf, order, &K{KC, NONE, tosend.Body})
+		err = writeData(dbuf, order, &K{TypeChar, NONE, tosend.Body})
 		if err != nil {
 			return err
 		}
@@ -193,9 +193,7 @@ func Encode(w io.Writer, msgtype int, data *K) (err error) {
 	}
 	msglen := uint32(8 + dbuf.Len())
 	var header = ipcHeader{1, byte(msgtype), 0, 0, msglen}
-	buf := new(bytes.Buffer)
-	err = binary.Write(buf, order, header)
-	err = binary.Write(buf, order, dbuf.Bytes())
-	_, err = w.Write(Compress(buf.Bytes()))
+	err = binary.Write(w, order, header)
+	err = binary.Write(w, order, dbuf.Bytes())
 	return err
 }

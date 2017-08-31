@@ -31,26 +31,26 @@ const (
 // Q type constants
 const (
 	K0 int8 = 0 // generic type
-	//      type bytes qtype     ctype  accessor
-	KB int8 = 1  // 1 boolean   char   kG
-	UU int8 = 2  // 16 guid     U      kU
-	KG int8 = 4  // 1 byte      char   kG
-	KH int8 = 5  // 2 short     short  kH
-	KI int8 = 6  // 4 int       int    kI
-	KJ int8 = 7  // 8 long      long   kJ
-	KE int8 = 8  // 4 real      float  kE
-	KF int8 = 9  // 8 float     double kF
-	KC int8 = 10 // 1 char      char   kC
-	KS int8 = 11 // * symbol    char*  kS
+	//      	type bytes qtype     ctype  accessor
+	TypeBoolean int8 = 1  // 1 boolean   char   kG
+	TypeGUID    int8 = 2  // 16 guid     U      kU
+	TypeByte    int8 = 4  // 1 byte      char   kG
+	TypeInt16   int8 = 5  // 2 short     short  kH
+	TypeInt32   int8 = 6  // 4 int       int    kI
+	TypeInt64   int8 = 7  // 8 long      long   kJ
+	TypeFloat32 int8 = 8  // 4 real      float  kE
+	TypeFloat64 int8 = 9  // 8 float     double kF
+	TypeChar    int8 = 10 // 1 char      char   kC
+	TypeString  int8 = 11 // * symbol    char*  kS
 
-	KP int8 = 12 // 8 timestamp long   kJ (nanoseconds from 2000.01.01)
-	KM int8 = 13 // 4 month     int    kI (months from 2000.01.01)
-	KD int8 = 14 // 4 date      int    kI (days from 2000.01.01)
-	KZ int8 = 15 // 8 datetime  double kF (DO NOT USE)
-	KN int8 = 16 // 8 timespan  long   kJ (nanoseconds)
-	KU int8 = 17 // 4 minute    int    kI
-	KV int8 = 18 // 4 second    int    kI
-	KT int8 = 19 // 4 time      int    kI (millisecond)
+	TypeTimestamp int8 = 12 // 8 timestamp long   kJ (nanoseconds from 2000.01.01)
+	TypeMonth     int8 = 13 // 4 month     int    kI (months from 2000.01.01)
+	TypeDay       int8 = 14 // 4 date      int    kI (days from 2000.01.01)
+	KZ            int8 = 15 // 8 datetime  double kF (DO NOT USE)
+	TypeTimespan  int8 = 16 // 8 timespan  long   kJ (nanoseconds)
+	TypeMinute    int8 = 17 // 4 minute    int    kI
+	TimeSecond    int8 = 18 // 4 second    int    kI
+	TypeTime      int8 = 19 // 4 time      int    kI (millisecond)
 
 	// table,dict
 	XT int8 = 98  //   x->k is XD
@@ -116,19 +116,19 @@ type K struct {
 }
 
 func Int(x int32) *K {
-	return &K{-KI, NONE, x}
+	return &K{-TypeInt32, NONE, x}
 }
 
 func Long(x int64) *K {
-	return &K{-KJ, NONE, x}
+	return &K{-TypeInt64, NONE, x}
 }
 
 func Real(x float32) *K {
-	return &K{-KE, NONE, x}
+	return &K{-TypeFloat32, NONE, x}
 }
 
 func Float(x float64) *K {
-	return &K{-KF, NONE, x}
+	return &K{-TypeFloat64, NONE, x}
 }
 
 func Error(x error) *K {
@@ -136,10 +136,10 @@ func Error(x error) *K {
 }
 
 func Symbol(x string) *K {
-	return &K{-KS, NONE, x}
+	return &K{-TypeString, NONE, x}
 }
 func SymbolV(x []string) *K {
-	return &K{KS, NONE, x}
+	return &K{TypeString, NONE, x}
 }
 
 func Atom(t int8, x interface{}) *K {
@@ -162,7 +162,7 @@ func NewFunc(ctx, body string) *K {
 func (k *K) Len() int {
 	if k.Type < K0 || k.Type >= KFUNC {
 		return 1
-	} else if k.Type >= K0 && k.Type <= KT {
+	} else if k.Type >= K0 && k.Type <= TypeTime {
 		return reflect.ValueOf(k.Data).Len()
 	} else if k.Type == XD {
 		return k.Data.(Dict).Key.Len()
@@ -186,7 +186,7 @@ func (k *K) Index(i int) interface{} {
 		return nil
 
 	}
-	if k.Type >= K0 && k.Type <= KT {
+	if k.Type >= K0 && k.Type <= TypeTime {
 		return reflect.ValueOf(k.Data).Index(i).Interface()
 	}
 	// case for table
@@ -203,7 +203,7 @@ func (k K) String() string {
 	if k.Type < K0 {
 		return fmt.Sprint(k.Data)
 	}
-	if k.Type > K0 && k.Type <= KT {
+	if k.Type > K0 && k.Type <= TypeTime {
 		return fmt.Sprint(k.Data)
 	}
 	switch k.Type {
@@ -286,7 +286,7 @@ func NewTable(cols []string, data []*K) *K {
 
 func (tbl *Table) Index(i int) Dict {
 	var d = Dict{}
-	d.Key = &K{KS, NONE, tbl.Columns}
+	d.Key = &K{TypeString, NONE, tbl.Columns}
 	vslice := make([]*K, len(tbl.Columns))
 	d.Value = &K{K0, NONE, vslice}
 	for ci := range tbl.Columns {
@@ -294,7 +294,7 @@ func (tbl *Table) Index(i int) Dict {
 		dtype := tbl.Data[ci].Type
 		if dtype == K0 {
 			dtype = kd.(*K).Type
-		} else if dtype > K0 && dtype <= KT {
+		} else if dtype > K0 && dtype <= TypeTime {
 			dtype = -dtype
 		}
 		vslice[ci] = &K{dtype, NONE, kd}
